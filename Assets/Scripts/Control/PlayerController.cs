@@ -3,6 +3,7 @@ using RPG.Combat;
 using RPG.Movement;
 using RPG.Resources;
 using UnityEngine.EventSystems;
+using UnityEngine.AI;
 using System;
 
 namespace RPG.Control
@@ -20,10 +21,12 @@ namespace RPG.Control
             public Vector2 hotspot;
         }
         [SerializeField] CursorMapping[] cursormappings = null;
+        [SerializeField] float maxNavMeshProjectionDistance = 1f;
 
         Health health;
 
-      
+        public float MaxNavMeshProjectionDistance { get => maxNavMeshProjectionDistance; set => maxNavMeshProjectionDistance = value; }
+
         void Awake()
         {
         health = GetComponent<Health>();
@@ -39,7 +42,7 @@ namespace RPG.Control
                 return;
             }
             if (InteractWithComponent()) return;
-            //if (InteractWithCombat()) return;
+            
             if (InteractWithMovement()) return;
             SetCursor(CursorType.None);
         }
@@ -86,38 +89,36 @@ namespace RPG.Control
            return false;
         }
 
-        // private bool InteractWithCombat()
-        // {
-        //    RaycastHit[] hits = Physics.RaycastAll(GetMouseRay());
-        //    foreach (RaycastHit hit in hits) {
-        //         CombatTarget target = hit.transform.GetComponent<CombatTarget>();
-        //         if (target ==null) continue;
-        //         if (!GetComponent<Fighter>().CanAttack(target.gameObject)) continue;
-        //         if (Input.GetMouseButton(0)) {
-        //             GetComponent<Fighter>().Attack(target.gameObject);
-        //         }
-        //         SetCursor(CursorType.Combat);
-        //         return true;
-
-        //    }
-        //    return false;
-        // }
 
        
 
         private bool InteractWithMovement()
         {
-            RaycastHit hit;
-            bool hasHit = Physics.Raycast(GetMouseRay(), out hit);
+            
+            Vector3 target;
+            bool hasHit = RaycastNavMesh(out target);
             if (hasHit)
             {
                 if (Input.GetMouseButton(0)) {
-                GetComponent<Mover>().StartMoveAction(hit.point,1f);
+                GetComponent<Mover>().StartMoveAction(target,1f);
                 }
                 SetCursor(CursorType.Movement);
                 return true;
             }
             return false;
+        }
+
+        private bool RaycastNavMesh(out Vector3 target)
+        {
+            RaycastHit hit;
+            bool hasHit = Physics.Raycast(GetMouseRay(), out hit);
+            target = new Vector3();
+            if (!hasHit) return false;
+            NavMeshHit navMeshHit;
+            bool hasCastToNavMesh = NavMesh.SamplePosition(hit.point, out navMeshHit, maxNavMeshProjectionDistance, NavMesh.AllAreas);
+            if (!hasCastToNavMesh) return false;
+            target = navMeshHit.position;
+            return true;
         }
 
         private void SetCursor(CursorType type)
